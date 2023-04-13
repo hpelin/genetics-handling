@@ -52,7 +52,9 @@ class Converter():
     snp_stats_path: str = ''
 
     def create_dosage(self, token):
-        
+        '''
+        Calculates dosage for the given token (line)
+        '''
         n_ind = int(token.shape[0]/3)
         token = token.reshape(n_ind,3)
 
@@ -82,6 +84,10 @@ class Converter():
 
 
     def process_file(self, filename, ch_nr, snp_stats_stem):
+        '''
+        Process the given file - run dosage converter for each line and create 
+        dosage data and map datasets
+        '''
    
         filepath = os.path.join(self.input_directory, filename)
 
@@ -95,16 +101,12 @@ class Converter():
         read.seek(0)
         dosage_final = []
 
-
         for line in read:
             dosage_final.append(self.process_token(line, length))
 
         # Convert to numpy array because HDF accepts that
         self.map_file = np.asarray(self.map_file, dtype='S')
-        np.save('./data/map_numpy.npy', self.map_file)
         dosage_final = np.asarray(dosage_final)
-        np.save('./data/dosage_numpy.npy', dosage_final)
-        print(dosage_final.shape)
         sys.stdout.write("\n")
         self.logger.warning('----DOSAGE FILE----')
 
@@ -131,7 +133,9 @@ class Converter():
     
     
     def process_token(self, token, length):
-
+        '''
+        Process the given line - call create_dosage for each line
+        '''
         barLength = 100
         l = token.strip().split(' ')
         three_prob_data = l[self.header:]
@@ -158,6 +162,7 @@ class Converter():
 
     def read_snp_stats(self, filepath):
         '''
+        Read snp stats file. 
         Parts are hardcoded given that the column names are always in the same order
         '''
         snp_stats_data = []
@@ -181,6 +186,9 @@ class Converter():
         return snp_stats_data
     
     def save_sample(self, path, filename, hdf_filepath):
+        '''
+        Save sample dataset - done only once
+        '''
         self.logger.warning('----SAMPLE FILE----')
         self.logger.warning('- Sample parametar = 1')
         if path[-1] == '/':
@@ -211,6 +219,9 @@ class Converter():
     
     
     def run_converter(self, filename, ch_nr, hdf_filepath, snp_stats_stem):
+        '''
+        Run the converter (function called from main)
+        '''
         hdf_group_name = 'Genetics/' + 'Ch' + ch_nr
         hdf_dataset_name = 'dosage' + ch_nr
         hdf_map_file_name = 'map' + ch_nr
@@ -225,28 +236,27 @@ class Converter():
         start_time = time.time()
    
         self.logger.warning('STATUS: Saving the data for Chromosome {}'.format(ch_nr))
-        print(self.map_file)
-        self.map_file = self.map_file.astype('S')
-        print(self.map_file.dtype)
+        self.map_file = self.map_file.astype('S') # Has to be of that type because it contains strings 
         self.save_file(hdf_filepath, hdf_group_name, hdf_dataset_name, hdf_map_file_name, dosage)
         self.logger.warning("STATUS: Data saved into file: {} under {}. Time needed: {} seconds ---".format(hdf_filepath, hdf_group_name, time.time()-start_time))
 
 
     def save_file(self, hdf_filepath, hdf_group_name, hdf_dataset_name, hdf_map_file_name, dosage):
-        #dt = h5py.special_dtype(vlen=str)    
-        #dt = h5py.vlen_dtype(np.dtype('S1'))
-        with h5py.File(hdf_filepath, 'a') as hdf:
-            G = hdf.create_group(hdf_group_name)
-            G.create_dataset(hdf_map_file_name, data=self.map_file, dtype=h5py.string_dtype(), compression = 'lzf')
-            #G.create_dataset(hdf_dataset_name, data=dosage, compression = 'lzf')
-
+        '''
+        Save files.
+        '''
+        self.fileprocessingsystem.save_file(hdf_filepath, hdf_group_name, hdf_dataset_name, hdf_map_file_name, dosage, self.map_file)
+   
 
     def check_ch_processed(self, hdf_filepath, hdf_group_name):
-        with h5py.File(hdf_filepath, 'a') as hdf:
-            if hdf_group_name in hdf.keys(): #!!!!!!!ovdje staviti ako postoji u genetics
-                self.logger.warning('!! There already exists group {} for the given Chromosome!'.format(hdf_group_name))
-                sys.exit()
-            else:
-                pass
+        '''
+        Check if the chromosome is already processeed
+        '''
+        if self.fileprocessingsystem.check_ch_processed(hdf_filepath, hdf_group_name) == True:
+            self.logger.warning('!! There already exists group {} for the given Chromosome!'.format(hdf_group_name))
+            sys.exit()
+        else:
+            pass
+
 
 
